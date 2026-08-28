@@ -94,18 +94,11 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "operator-ns",
-			// Full managed label set, as the egress Services reconciler would set
-			// at creation. egress-eps does not write labels, so these must be
-			// present on the created object for the reconciler to find the
-			// ClusterIP Service and for the expected object to match.
-			Labels: egressSvcEpsLabels(svc, clusterIPSvc),
+			Labels:    egressSvcEpsLabels(svc, clusterIPSvc),
 		},
 		AddressType: discoveryv1.AddressTypeIPv4,
 	}
 	mustCreate(t, fc, eps)
-	// The egress EndpointSlices reconciler owns the slice's ports (derived from
-	// the ClusterIP Service); it does not write labels. So the expected object
-	// carries the ports it sets, and the labels it was created with.
 	eps.Ports = epsPorts
 
 	t.Run("no_proxy_group_resources", func(t *testing.T) {
@@ -157,35 +150,27 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 			t.Errorf("EndpointSlice rewritten on steady-state reconcile: resourceVersion %s -> %s", before.ResourceVersion, after.ResourceVersion)
 		}
 	})
-	t.Run("labels_not_touched", func(t *testing.T) {
-		// egress-eps owns only endpoints and ports; labels are owned by the egress
-		// Services reconciler. So when it writes endpoints/ports via a merge patch,
-		// it must not touch labels at all: an external label must survive, and a
-		// managed label it does not read as input (LabelManagedBy) must NOT be
-		// re-added by egress-eps (it is not egress-eps's responsibility). This
-		// documents the ownership boundary and proves the merge patch does not
-		// clobber or repair labels.
+	t.Run("label_reasserted_when_dropped", func(t *testing.T) {
+		// egress-eps is the sole writer of the slice after creation, so it owns all
+		// mutable state: labels, endpoints and ports. It re-asserts the owned labels
+		// to repair drift (e.g. a managed label removed out of band) while preserving
+		// labels added by other controllers. Drop a managed label (LabelManagedBy) and
+		// add a foreign label, then reconcile: the managed label must be repaired and
+		// the foreign label must survive.
 		mustUpdate(t, fc, "operator-ns", "foo", func(e *discoveryv1.EndpointSlice) {
 			e.Labels["example.com/external"] = "keep-me"
 			delete(e.Labels, discoveryv1.LabelManagedBy)
 		})
-		// Trigger a real endpoints change so egress-eps performs a merge patch.
-		// Add asecond port to the ClusterIP Service so the slice's ports change.
-		mustUpdate(t, fc, "operator-ns", clusterIPSvc.Name, func(s *corev1.Service) {
-			s.Spec.Ports = append(s.Spec.Ports, corev1.ServicePort{Name: "extra", Protocol: "TCP", Port: 8443, TargetPort: intstr.FromInt(4005)})
-			clusterIPSvc.Spec.Ports = s.Spec.Ports
-		})
-		epsPorts = epsPortsFromSvc(clusterIPSvc)
 		expectReconciled(t, er, "operator-ns", "foo")
 		got := &discoveryv1.EndpointSlice{}
 		if err := fc.Get(t.Context(), types.NamespacedName{Name: "foo", Namespace: "operator-ns"}, got); err != nil {
 			t.Fatalf("getting EndpointSlice: %v", err)
 		}
 		if got.Labels["example.com/external"] != "keep-me" {
-			t.Errorf("external label not preserved by merge patch: got %q", got.Labels["example.com/external"])
+			t.Errorf("foreign label not preserved: got %q", got.Labels["example.com/external"])
 		}
-		if _, ok := got.Labels[discoveryv1.LabelManagedBy]; ok {
-			t.Errorf("egress-eps re-added managed label %s it does not own: %q", discoveryv1.LabelManagedBy, got.Labels[discoveryv1.LabelManagedBy])
+		if got.Labels[discoveryv1.LabelManagedBy] != "tailscale.com" {
+			t.Errorf("managed label %s not repaired: got %q, want %q", discoveryv1.LabelManagedBy, got.Labels[discoveryv1.LabelManagedBy], "tailscale.com")
 		}
 		eps.Labels = got.Labels
 		eps.Ports = epsPorts
@@ -211,7 +196,9 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 			mak.Set(&s.Data, egressservices.KeyEgressServices, stBs)
 		})
 		expectReconciled(t, er, "operator-ns", "foo")
-		eps.Endpoints = []discoveryv1.Endpoint{}
+		// No ready Pod: egress-eps writes nil Endpoints (not an empty slice) so a
+		// no-ready-Pods result compares equal to a freshly created slice's nil field.
+		eps.Endpoints = nil
 		expectEqual(t, fc, eps)
 	})
 
@@ -220,10 +207,7 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo-ipv6",
 			Namespace: "operator-ns",
-			// Full managed label set, as the egress Services reconciler would set
-			// at creation (egress-eps does not write labels).
-			// TODO(beckypauley): specify.
-			Labels: egressSvcEpsLabels(svc, clusterIPSvc),
+			Labels:    egressSvcEpsLabels(svc, clusterIPSvc),
 		},
 		AddressType: discoveryv1.AddressTypeIPv6,
 	}
@@ -282,7 +266,7 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 		})
 		expectReconciled(t, er, "operator-ns", "foo-ipv6")
 		// IPv4-only pod should not appear in the IPv6 EndpointSlice.
-		epsV6.Endpoints = []discoveryv1.Endpoint{}
+		epsV6.Endpoints = nil
 		expectEqual(t, fc, epsV6)
 	})
 	ipv6Pod := &corev1.Pod{
@@ -304,7 +288,7 @@ func TestTailscaleEgressEndpointSlices(t *testing.T) {
 			mak.Set(&s.Data, egressservices.KeyEgressServices, stBs)
 		})
 		expectReconciled(t, er, "operator-ns", "foo-ipv6")
-		epsV6.Endpoints = []discoveryv1.Endpoint{}
+		epsV6.Endpoints = nil
 		expectEqual(t, fc, epsV6)
 	})
 	t.Run("ipv6_pod_ready_to_route", func(t *testing.T) {
