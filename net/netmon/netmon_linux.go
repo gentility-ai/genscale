@@ -289,7 +289,7 @@ type newRouteMessage struct {
 	Table    uint8
 }
 
-const tsTable = 52
+const tsTable = 66 // genscale: our route table, see GENSCALE.md and osrouter
 
 func (m *newRouteMessage) ignore() bool {
 	return m.Table == tsTable || tsaddr.IsTailscaleIP(m.Dst.Addr())

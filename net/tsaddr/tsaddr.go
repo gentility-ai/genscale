@@ -63,7 +63,7 @@ func TailscaleServiceIPv6() netip.Addr {
 
 const (
 	TailscaleServiceIPString   = "100.100.100.100"
-	TailscaleServiceIPv6String = "fd7a:115c:a1e0::53"
+	TailscaleServiceIPv6String = "fd06:6e7::53" // genscale: 6net's range, see GENSCALE.md
 )
 
 // IsTailscaleIP reports whether IP is an IP address in a range that
@@ -84,7 +84,7 @@ func IsTailscaleIPv4(ip netip.Addr) bool {
 // TailscaleULARange returns the IPv6 Unique Local Address range that
 // is the superset range that Tailscale assigns out of.
 func TailscaleULARange() netip.Prefix {
-	tsUlaRange.Do(func() { mustPrefix(&tsUlaRange.v, "fd7a:115c:a1e0::/48") })
+	tsUlaRange.Do(func() { mustPrefix(&tsUlaRange.v, "fd06:6e7::/48") }) // genscale: 6net's range, see GENSCALE.md
 	return tsUlaRange.v
 }
 
@@ -92,7 +92,7 @@ func TailscaleULARange() netip.Prefix {
 // TailscaleULARange that's used for IPv4 tunneling via IPv6.
 func TailscaleViaRange() netip.Prefix {
 	// Mnemonic: "b1a" sounds like "via".
-	tsViaRange.Do(func() { mustPrefix(&tsViaRange.v, "fd7a:115c:a1e0:b1a::/64") })
+	tsViaRange.Do(func() { mustPrefix(&tsViaRange.v, "fd06:6e7:0:b1a::/64") }) // genscale: 6net's range, see GENSCALE.md
 	return tsViaRange.v
 }
 
@@ -102,7 +102,7 @@ func Tailscale4To6Range() netip.Prefix {
 	// This IP range has no significance, beyond being a subset of
 	// TailscaleULARange. The bits from /48 to /104 were picked at
 	// random.
-	ula4To6Range.Do(func() { mustPrefix(&ula4To6Range.v, "fd7a:115c:a1e0:ab12:4843:cd96:6200::/104") })
+	ula4To6Range.Do(func() { mustPrefix(&ula4To6Range.v, "fd06:6e7:0:ab12:4843:cd96:6200::/104") }) // genscale: 6net's range, see GENSCALE.md
 	return ula4To6Range.v
 }
 
@@ -113,7 +113,7 @@ func TailscaleEphemeral6Range() netip.Prefix {
 	// TailscaleULARange. The bits from /48 to /64 were picked at
 	// random, with the only criterion being to not be the conflict
 	// with the Tailscale4To6Range above.
-	ulaEph6Range.Do(func() { mustPrefix(&ulaEph6Range.v, "fd7a:115c:a1e0:efe3::/64") })
+	ulaEph6Range.Do(func() { mustPrefix(&ulaEph6Range.v, "fd06:6e7:0:efe3::/64") }) // genscale: 6net's range, see GENSCALE.md
 	return ulaEph6Range.v
 }
 

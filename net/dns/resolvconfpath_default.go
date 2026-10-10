@@ -7,5 +7,5 @@ package dns
 
 const (
 	resolvConf = "/etc/resolv.conf"
-	backupConf = "/etc/resolv.pre-tailscale-backup.conf"
+	backupConf = "/etc/resolv.pre-gentility-backup.conf" // genscale: see GENSCALE.md
 )

@@ -47,12 +47,30 @@ func TestTailscaleServiceIP(t *testing.T) {
 
 func TestTailscaleServiceIPv6(t *testing.T) {
 	got := TailscaleServiceIPv6().String()
-	want := "fd7a:115c:a1e0::53"
+	want := "fd06:6e7::53" // genscale: 6net's range
 	if got != want {
 		t.Errorf("got %q; want %q", got, want)
 	}
 	if TailscaleServiceIPv6String != want {
 		t.Error("TailscaleServiceIPv6String is not consistent")
+	}
+}
+
+// TestGenscaleRanges pins 6net's ULA and the reserved subnets carved out of
+// it (see GENSCALE.md): the upstream /64 indices under fd06:6e7::/48.
+func TestGenscaleRanges(t *testing.T) {
+	for _, tt := range []struct {
+		got  netip.Prefix
+		want string
+	}{
+		{TailscaleULARange(), "fd06:6e7::/48"},
+		{TailscaleViaRange(), "fd06:6e7:0:b1a::/64"},
+		{Tailscale4To6Range(), "fd06:6e7:0:ab12:4843:cd96:6200::/104"},
+		{TailscaleEphemeral6Range(), "fd06:6e7:0:efe3::/64"},
+	} {
+		if tt.got != netip.MustParsePrefix(tt.want) {
+			t.Errorf("got %v; want %v", tt.got, tt.want)
+		}
 	}
 }
 
@@ -83,8 +101,8 @@ func TestUnmapVia(t *testing.T) {
 		want string
 	}{
 		{"1.2.3.4", "1.2.3.4"}, // unchanged v4
-		{"fd7a:115c:a1e0:b1a::bb:10.2.1.3", "10.2.1.3"},
-		{"fd7a:115c:a1e0:b1b::bb:10.2.1.4", "fd7a:115c:a1e0:b1b:0:bb:a02:104"}, // "b1b",not "bia"
+		{"fd06:6e7:0:b1a::bb:10.2.1.3", "10.2.1.3"},
+		{"fd06:6e7:0:b1b::bb:10.2.1.4", "fd06:6e7:0:b1b:0:bb:a02:104"}, // "b1b",not "bia"
 	}
 	for _, tt := range tests {
 		if got := UnmapVia(netip.MustParseAddr(tt.ip)).String(); got != tt.want {
@@ -238,7 +256,7 @@ func TestIsTailscaleIPv4(t *testing.T) {
 		},
 		{
 
-			in:   netip.MustParseAddr("fd7a:115c:a1e0:3f2b:7a1d:4e88:9c2b:7f01"),
+			in:   netip.MustParseAddr("fd06:6e7:0:3f2b:7a1d:4e88:9c2b:7f01"),
 			want: false,
 		},
 		{
@@ -272,8 +290,13 @@ func TestIsTailscaleIP(t *testing.T) {
 		},
 		{
 
-			in:   netip.MustParseAddr("fd7a:115c:a1e0:3f2b:7a1d:4e88:9c2b:7f01"),
+			in:   netip.MustParseAddr("fd06:6e7:0:3f2b:7a1d:4e88:9c2b:7f01"),
 			want: true,
+		},
+		{
+			// genscale: Tailscale's own ULA is not 6net's.
+			in:   netip.MustParseAddr("fd7a:115c:a1e0:3f2b:7a1d:4e88:9c2b:7f01"),
+			want: false,
 		},
 		{
 			in:   netip.MustParseAddr("bc9d:0aa0:1f0a:69ab:eb5c:28e0:5456:a518"),

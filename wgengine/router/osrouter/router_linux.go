@@ -118,7 +118,7 @@ func newUserspaceRouterAdvanced(logf logger.Logf, tunname string, netMon *netmon
 		cmd: cmd,
 
 		ipRuleFixLimiter: rate.NewLimiter(rate.Every(5*time.Second), 10),
-		ipPolicyPrefBase: 5200,
+		ipPolicyPrefBase: 5100, // genscale: before Tailscale's 5200, see GENSCALE.md
 	}
 	ec := bus.Client("router-linux")
 	r.rulesAddedPub = eventbus.Publish[AddIPRules](ec)
@@ -153,19 +153,19 @@ func newUserspaceRouterAdvanced(logf logger.Logf, tunname string, netMon *netmon
 	//  2001: from all fwmark 0x100/0x3f00 lookup 1
 	//
 	// has the effect of gobbling tailscale packets, because tailscale by default installs
-	// its policy routing rules at priority 52xx.
+	// its policy routing rules at priority 52xx (genscale: ours at 51xx).
 	//
 	// As such, if we are running on openWRT, detect a mwan3 config, AND detect a rule
 	// with a preference 2001 (corresponding to the first interface wman3 manages), we
-	// shift the priority of our policies to 13xx. This effectively puts us between mwan3's
+	// shift the priority of our policies to 14xx (genscale: Tailscale uses 13xx). This effectively puts us between mwan3's
 	// permit-by-src-ip rules and mwan3 lookup of its own routing table which would drop
 	// the packet.
 	isMWAN3, err := checkOpenWRTUsingMWAN3()
 	if err != nil {
 		r.logf("error checking mwan3 installation: %v", err)
 	} else if isMWAN3 {
-		r.ipPolicyPrefBase = 1300
-		r.logf("mwan3 on openWRT detected, switching policy base priority to 1300")
+		r.ipPolicyPrefBase = 1400 // genscale: Tailscale uses 1300, see GENSCALE.md
+		r.logf("mwan3 on openWRT detected, switching policy base priority to 1400")
 	}
 
 	r.v6Available = linuxfw.CheckIPv6(r.logf) == nil
@@ -313,7 +313,7 @@ type AddIPRules struct{}
 // onIPRuleDeleted is the callback from the network monitor for when an IP
 // policy rule is deleted. See Issue 1591.
 //
-// If an ip rule is deleted (with pref number 52xx, as Tailscale sets), then
+// If an ip rule is deleted (with pref number 51xx, as genscale sets), then
 // set a timer to restore our rules, in case they were deleted. The timer lets
 // us do one fixup in response to a batch of rule deletes. It also lets us
 // delay arbitrarily to prevent a high-speed fight over the rule between
@@ -1323,14 +1323,14 @@ var (
 	// stay in the 0-255 range even though linux itself supports
 	// larger numbers. (but nowadays we use netlink directly and
 	// aren't affected by the busybox binary's limitations)
-	tailscaleRouteTable = newRouteTable("tailscale", 52)
+	tailscaleRouteTable = newRouteTable("tailscale", 66) // genscale: not Tailscale's 52, see GENSCALE.md
 )
 
 // baseIPRules are the policy routing rules that Tailscale uses, when not
 // running on a UBNT device.
 //
 // The priority is the value represented here added to r.ipPolicyPrefBase,
-// which is usually 5200.
+// which is usually 5100 (genscale; Tailscale uses 5200).
 //
 // NOTE(apenwarr): We leave spaces between each pref number.
 // This is so the sysadmin can override by inserting rules in
@@ -1339,7 +1339,7 @@ var (
 // NOTE(apenwarr): This sequence seems complicated, right?
 // If we could simply have a rule that said "match packets that
 // *don't* have this fwmark", then we would only need to add one
-// link to table 52 and we'd be done. Unfortunately, older kernels
+// link to table 66 (genscale; Tailscale's is 52) and we'd be done. Unfortunately, older kernels
 // and 'ip rule' implementations (including busybox), don't support
 // checking for the lack of a fwmark, only the presence. The technique
 // below works even on very old kernels.
@@ -1383,7 +1383,7 @@ var baseIPRules = []netlink.Rule{
 // on a UBNT device.
 //
 // The priority is the value represented here added to
-// r.ipPolicyPrefBase, which is usually 5200.
+// r.ipPolicyPrefBase, which is usually 5100 (genscale; Tailscale uses 5200).
 //
 // This represents an experiment that will be used to gather more information.
 // If this goes well, Tailscale may opt to use this for all of Linux.

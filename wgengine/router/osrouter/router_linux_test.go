@@ -39,14 +39,14 @@ type Config = router.Config
 
 func TestRouterStates(t *testing.T) {
 	basic := `
-ip rule add -4 pref 5210 fwmark 0x80000/0xff0000 table main
-ip rule add -4 pref 5230 fwmark 0x80000/0xff0000 table default
-ip rule add -4 pref 5250 fwmark 0x80000/0xff0000 type unreachable
-ip rule add -4 pref 5270 table 52
-ip rule add -6 pref 5210 fwmark 0x80000/0xff0000 table main
-ip rule add -6 pref 5230 fwmark 0x80000/0xff0000 table default
-ip rule add -6 pref 5250 fwmark 0x80000/0xff0000 type unreachable
-ip rule add -6 pref 5270 table 52
+ip rule add -4 pref 5110 fwmark 0x80000/0xff0000 table main
+ip rule add -4 pref 5130 fwmark 0x80000/0xff0000 table default
+ip rule add -4 pref 5150 fwmark 0x80000/0xff0000 type unreachable
+ip rule add -4 pref 5170 table 66
+ip rule add -6 pref 5110 fwmark 0x80000/0xff0000 table main
+ip rule add -6 pref 5130 fwmark 0x80000/0xff0000 table default
+ip rule add -6 pref 5150 fwmark 0x80000/0xff0000 type unreachable
+ip rule add -6 pref 5170 table 66
 `
 	states := []struct {
 		name string
@@ -80,8 +80,8 @@ ip addr add 100.101.102.103/10 dev tailscale0` + basic,
 			want: `
 up
 ip addr add 100.101.102.103/10 dev tailscale0
-ip route add 100.100.100.100/32 dev tailscale0 table 52
-ip route add 192.168.16.0/24 dev tailscale0 table 52` + basic,
+ip route add 100.100.100.100/32 dev tailscale0 table 66
+ip route add 192.168.16.0/24 dev tailscale0 table 66` + basic,
 		},
 
 		{
@@ -95,8 +95,8 @@ ip route add 192.168.16.0/24 dev tailscale0 table 52` + basic,
 			want: `
 up
 ip addr add 100.101.102.103/10 dev tailscale0
-ip route add 100.100.100.100/32 dev tailscale0 table 52
-ip route add 192.168.16.0/24 dev tailscale0 table 52` + basic,
+ip route add 100.100.100.100/32 dev tailscale0 table 66
+ip route add 192.168.16.0/24 dev tailscale0 table 66` + basic,
 		},
 
 		{
@@ -112,8 +112,8 @@ ip route add 192.168.16.0/24 dev tailscale0 table 52` + basic,
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -153,8 +153,8 @@ v6/nat/ts-postrouting -m mark --mark 0x40000/0xff0000 -j MASQUERADE
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -189,8 +189,8 @@ v6/nat/ts-postrouting -m mark --mark 0x40000/0xff0000 -j MASQUERADE
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -226,8 +226,8 @@ v6/nat/POSTROUTING -j ts-postrouting
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -260,8 +260,8 @@ v6/nat/POSTROUTING -j ts-postrouting
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -295,8 +295,8 @@ v6/nat/POSTROUTING -j ts-postrouting
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
 v4/filter/ts-forward -m mark --mark 0x40000/0xff0000 -j ACCEPT
 v4/filter/ts-forward -o tailscale0 -s 100.64.0.0/10 -j DROP
@@ -319,8 +319,8 @@ v6/filter/ts-forward -o tailscale0 -j ACCEPT
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 10.0.0.0/8 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 10.0.0.0/8 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -354,9 +354,9 @@ v6/nat/POSTROUTING -j ts-postrouting
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 0.0.0.0/0 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52
-ip route add throw 10.0.0.0/8 table 52` + basic +
+ip route add 0.0.0.0/0 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66
+ip route add throw 10.0.0.0/8 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -390,10 +390,10 @@ v6/nat/POSTROUTING -j ts-postrouting
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 0.0.0.0/0 dev tailscale0 table 52
-ip route add 100.100.100.100/32 dev tailscale0 table 52
-ip route add throw 10.0.0.0/8 table 52
-ip route add throw 192.168.0.0/24 table 52` + basic,
+ip route add 0.0.0.0/0 dev tailscale0 table 66
+ip route add 100.100.100.100/32 dev tailscale0 table 66
+ip route add throw 10.0.0.0/8 table 66
+ip route add throw 192.168.0.0/24 table 66` + basic,
 		},
 		{
 			name: "subnet-routes-connmark-for-rp_filter",
@@ -407,7 +407,7 @@ ip route add throw 192.168.0.0/24 table 52` + basic,
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -444,7 +444,7 @@ v6/nat/ts-postrouting -m mark --mark 0x40000/0xff0000 -j MASQUERADE
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -482,7 +482,7 @@ v6/nat/ts-postrouting -m mark --mark 0x40000/0xff0000 -j MASQUERADE
 			want: `
 up
 ip addr add 100.101.102.104/10 dev tailscale0
-ip route add 100.100.100.100/32 dev tailscale0 table 52` + basic +
+ip route add 100.100.100.100/32 dev tailscale0 table 66` + basic +
 				`v4/filter/FORWARD -j ts-forward
 v4/filter/INPUT -j ts-input
 v4/filter/ts-forward -i tailscale0 -j MARK --set-mark 0x40000/0xff0000
@@ -1245,8 +1245,8 @@ func TestRuleDeletedEvent(t *testing.T) {
 	lt.r.nfr = fake.nfr
 	defer lt.Close()
 	event := netmon.RuleDeleted{
-		Table:    52,
-		Priority: 5210,
+		Table:    uint8(tailscaleRouteTable.Num),
+		Priority: uint32(lt.r.ipPolicyPrefBase + 10),
 	}
 	tw := eventbustest.NewWatcher(t, bus)
 

@@ -764,7 +764,7 @@ func TestManager(t *testing.T) {
 		{
 			name: "exit-node-forward",
 			in: Config{
-				DefaultResolvers: mustRes("http://[fd7a:115c:a1e0:ab12:4843:cd96:6245:7a66]:2982/doh"),
+				DefaultResolvers: mustRes("http://[fd06:6e7:0:ab12:4843:cd96:6245:7a66]:2982/doh"),
 				Hosts: hosts(
 					"dave.ts.com.", "1.2.3.4",
 					"bradfitz.ts.com.", "2.3.4.5"),
@@ -775,7 +775,7 @@ func TestManager(t *testing.T) {
 				SearchDomains: fqdns("tailscale.com", "universe.tf"),
 			},
 			rs: resolver.Config{
-				Routes: upstreams(".", "http://[fd7a:115c:a1e0:ab12:4843:cd96:6245:7a66]:2982/doh"),
+				Routes: upstreams(".", "http://[fd06:6e7:0:ab12:4843:cd96:6245:7a66]:2982/doh"),
 				Hosts: hosts(
 					"dave.ts.com.", "1.2.3.4",
 					"bradfitz.ts.com.", "2.3.4.5"),
