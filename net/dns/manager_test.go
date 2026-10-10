@@ -698,11 +698,12 @@ func TestManager(t *testing.T) {
 			goos: "linux",
 		},
 		{
-			// The `routes-magic-split-linux` test case above on Darwin should NOT result in a
-			// split DNS configuration.
-			// Check that MatchDomains is empty. Due to Apple limitations, we cannot set MatchDomains
-			// without those domains also being SearchDomains.
-			name: "routes-magic-does-not-split-on-darwin",
+			// genscale: the `routes-magic-split-linux` test case above on Darwin
+			// splits too. The /etc/resolver configurator writes a file per
+			// MatchDomain and nothing else, so without MatchDomains no query
+			// reaches quad-100. Upstream leaves them empty for the
+			// NetworkExtension, where MatchDomains must also be SearchDomains.
+			name: "routes-magic-splits-on-darwin",
 			in: Config{
 				Routes: upstreams(
 					"corp.com", "2.2.2.2",
@@ -716,6 +717,7 @@ func TestManager(t *testing.T) {
 			os: OSConfig{
 				Nameservers:   serviceAddr46,
 				SearchDomains: fqdns("tailscale.com", "universe.tf"),
+				MatchDomains:  fqdns("corp.com", "ts.com"),
 			},
 			rs: resolver.Config{
 				Routes: upstreams(
@@ -866,9 +868,10 @@ func TestManager(t *testing.T) {
 			goos: "ios",
 		},
 		{
-			// on darwin, verify that with the same config as in ios-use-split-dns-when-no-custom-resolvers,
-			// MatchDomains are NOT set.
-			name: "darwin-dont-use-split-dns-when-no-custom-resolvers",
+			// genscale: on darwin, with the same config as in
+			// ios-use-split-dns-when-no-custom-resolvers, MatchDomains are every
+			// route, the local one included (upstream sets none on darwin).
+			name: "darwin-splits-when-no-custom-resolvers",
 			in: Config{
 				Routes:        upstreams("ts.net", "199.247.155.52", "optimistic-display.ts.net", ""),
 				SearchDomains: fqdns("optimistic-display.ts.net"),
@@ -877,6 +880,7 @@ func TestManager(t *testing.T) {
 			os: OSConfig{
 				Nameservers:   serviceAddr46,
 				SearchDomains: fqdns("optimistic-display.ts.net"),
+				MatchDomains:  fqdns("optimistic-display.ts.net", "ts.net"),
 			},
 			rs: resolver.Config{
 				Routes: upstreams(
@@ -884,6 +888,42 @@ func TestManager(t *testing.T) {
 					"ts.net", "199.247.155.52",
 				),
 				LocalDomains: fqdns("optimistic-display.ts.net."),
+			},
+			goos: "darwin",
+		},
+		{
+			// genscale: a 6net node on macOS. MagicDNS routes its own
+			// organization's domain, answered locally, and the base config
+			// parses. The route is a MatchDomain, so /etc/resolver gets a file
+			// for it, and the base nameservers take "." for any other name
+			// quad-100 is asked.
+			name: "darwin-6net-magicdns-matches-every-route",
+			in: Config{
+				OnlyIPv6: true,
+				Routes: upstreams(
+					"xlabs.6net.io", "",
+					"corp.com", "2.2.2.2"),
+				Hosts: hosts(
+					"laptop.xlabs.6net.io.", "fd06:6e7:0:1::2"),
+				SearchDomains: fqdns("xlabs.6net.io"),
+			},
+			split: true,
+			bs: OSConfig{
+				Nameservers:   mustIPs("192.168.1.1"),
+				SearchDomains: fqdns("lan"),
+			},
+			os: OSConfig{
+				Nameservers:   mustIPs("fd06:6e7::53"),
+				SearchDomains: fqdns("xlabs.6net.io", "lan"),
+				MatchDomains:  fqdns("corp.com", "xlabs.6net.io"),
+			},
+			rs: resolver.Config{
+				Routes: upstreams(
+					".", "192.168.1.1",
+					"corp.com.", "2.2.2.2"),
+				Hosts: hosts(
+					"laptop.xlabs.6net.io.", "fd06:6e7:0:1::2"),
+				LocalDomains: fqdns("xlabs.6net.io."),
 			},
 			goos: "darwin",
 		},

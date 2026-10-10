@@ -422,6 +422,12 @@ func (m *Manager) compileConfig(cfg Config) (rcfg resolver.Config, ocfg OSConfig
 		// If there was no base config, then we need to fallback to SplitDNS mode.
 		ocfg.MatchDomains = cfg.matchDomains()
 	} else {
+		// genscale: on macOS the OS configurator is the /etc/resolver
+		// darwinConfigurator, which writes a resolver file per MatchDomain
+		// and nothing else; without them no query ever reaches quad-100.
+		if m.goos == "darwin" && m.os.SupportsSplitDNS() {
+			ocfg.MatchDomains = cfg.matchDomains()
+		}
 		// On iOS only (for now), check if all route names point to resources inside the tailnet.
 		// If so, we can set those names as MatchDomains to enable a split DNS configuration
 		// which will help preserve battery life.

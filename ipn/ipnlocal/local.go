@@ -6172,19 +6172,13 @@ func magicDNSRootDomains(nm *netmap.NetworkMap) []dnsname.FQDN {
 			// TODO: propagate error
 			return nil
 		}
-		ret := []dnsname.FQDN{
+		// genscale: 6net's reverse zone, fd06:6e7::/48, and no
+		// 100.64.0.0/10 zones; Tailscale's would capture an installed
+		// Tailscale's PTR lookups. See GENSCALE.md.
+		return []dnsname.FQDN{
 			fqdn,
-			dnsname.FQDN("0.e.1.a.c.5.1.1.a.7.d.f.ip6.arpa."),
+			dnsname.FQDN("0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa."),
 		}
-		for i := 64; i <= 127; i++ {
-			fqdn, err = dnsname.ToFQDN(fmt.Sprintf("%d.100.in-addr.arpa.", i))
-			if err != nil {
-				// TODO: propagate error
-				continue
-			}
-			ret = append(ret, fqdn)
-		}
-		return ret
 	}
 	return nil
 }

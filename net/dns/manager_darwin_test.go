@@ -69,6 +69,20 @@ func TestSetDNS(t *testing.T) {
 				"search.6net": macResolverFileHeader + "search tail1234.ts.net\n",
 			},
 		},
+		{
+			// genscale: a 6net node's MagicDNS routes, one file each.
+			name: "6net",
+			cfg: OSConfig{
+				Nameservers:   []netip.Addr{netip.MustParseAddr("fd06:6e7::53")},
+				SearchDomains: []dnsname.FQDN{"xlabs.6net.io."},
+				MatchDomains:  []dnsname.FQDN{"0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa.", "xlabs.6net.io."},
+			},
+			fileContents: map[string]string{
+				"0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa": macResolverFileHeader + "nameserver fd06:6e7::53\n",
+				"xlabs.6net.io":                    macResolverFileHeader + "nameserver fd06:6e7::53\n",
+				"search.6net":                      macResolverFileHeader + "search xlabs.6net.io\n",
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -70,6 +70,20 @@ Resolver files, so we never touch Tailscale's:
   backup `resolv.pre-gentility-backup.conf` (upstream
   `resolv.pre-tailscale-backup.conf`).
 
+MagicDNS on macOS, where the OS configurator is the `/etc/resolver`
+`darwinConfigurator` (not Tailscale.app's NetworkExtension):
+
+- `net/dns/manager.go` `compileConfig`: on darwin, when the base config
+  parses, `MatchDomains` is every route domain (upstream sets them only on
+  iOS, and the configurator writes a resolver file per MatchDomain and
+  nothing else, so no query reached quad-100). `Routes["."]` keeps the base
+  nameservers, as upstream.
+- `ipn/ipnlocal/local.go` `magicDNSRootDomains`: the reverse zone is 6net's,
+  `0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa.`, and the `64-127.100.in-addr.arpa.`
+  zones are dropped (upstream routes Tailscale's ULA and CGNAT zones, which
+  would capture an installed Tailscale's PTR lookups and, under `tailscaled`
+  on macOS, overwrite its resolver files).
+
 Host-interface detection, so a co-installed Tailscale.app is never taken
 for a usable interface:
 
@@ -78,8 +92,9 @@ for a usable interface:
   interface even on a v6-only tailnet. `tsaddr.IsTailscaleIP` stays ours
   alone. Pinned by `net/netmon/state_genscale_test.go`.
 
-Tests in `net/tsaddr`, `net/dns/...`, `net/netmon` and
-`wgengine/router/osrouter` are updated to these values; `net/tsaddr` pins the
+Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
+`wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are
+updated to these values; `net/tsaddr` pins the
 ranges and refuses an address in Tailscale's ULA.
 
 ## Deliberately not changed
