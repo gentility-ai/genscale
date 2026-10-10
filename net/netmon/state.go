@@ -550,9 +550,13 @@ func netAddrsEqual(a, b []net.Addr) bool {
 	return true
 }
 
+// upstreamTailscaleULA is Tailscale's own IPv6 range. A utun carrying it
+// belongs to a co-installed Tailscale and is never a usable host interface.
+var upstreamTailscaleULA = netip.MustParsePrefix("fd7a:115c:a1e0::/48") // genscale: see GENSCALE.md
+
 func hasTailscaleIP(pfxs []netip.Prefix) bool {
 	for _, pfx := range pfxs {
-		if tsaddr.IsTailscaleIP(pfx.Addr()) {
+		if tsaddr.IsTailscaleIP(pfx.Addr()) || upstreamTailscaleULA.Contains(pfx.Addr()) { // genscale: see GENSCALE.md
 			return true
 		}
 	}

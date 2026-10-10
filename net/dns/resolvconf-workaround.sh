@@ -28,7 +28,7 @@ if [ -n "$TAILSCALE_RESOLVCONF_HOOK_LOOP" ]; then
 	exit 0
 fi
 
-if [ ! -f tun-tailscale.inet ]; then
+if [ ! -f tun-gentility.inet ]; then # genscale: our record, see GENSCALE.md
 	# Tailscale isn't trying to manage DNS, do nothing.
 	exit 0
 fi
@@ -44,7 +44,7 @@ fi
 		cat /etc/resolvconf/resolv.conf.d/head
 	fi
 	echo "# Tailscale workaround applied to set exclusive DNS configuration."
-	cat tun-tailscale.inet
+	cat tun-gentility.inet
 	if [ -f /etc/resolvconf/resolv.conf.d/base ]; then
 		# Keep options and sortlist, discard other base things since
 		# they're the things we're trying to override.

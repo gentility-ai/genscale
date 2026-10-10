@@ -40,7 +40,7 @@ func (m openresolvManager) logCmdErr(cmd *exec.Cmd, err error) {
 }
 
 func (m openresolvManager) deleteTailscaleConfig() error {
-	cmd := exec.Command("resolvconf", "-f", "-d", "tailscale")
+	cmd := exec.Command("resolvconf", "-f", "-d", "gentility") // genscale: our snippet, not Tailscale's; see GENSCALE.md
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		m.logCmdErr(cmd, err)
@@ -57,7 +57,7 @@ func (m openresolvManager) SetDNS(config OSConfig) error {
 	var stdin bytes.Buffer
 	writeResolvConf(&stdin, config.Nameservers, config.SearchDomains)
 
-	cmd := exec.Command("resolvconf", "-m", "0", "-x", "-a", "tailscale")
+	cmd := exec.Command("resolvconf", "-m", "0", "-x", "-a", "gentility") // genscale: our snippet, not Tailscale's; see GENSCALE.md
 	cmd.Stdin = &stdin
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -80,10 +80,10 @@ func (m openresolvManager) GetBaseConfig() (OSConfig, error) {
 		return OSConfig{}, err
 	}
 
-	// Remove the "tailscale" snippet from the list.
+	// Remove the "gentility" snippet from the list.
 	args := []string{"-l"}
 	for f := range strings.SplitSeq(strings.TrimSpace(string(bs)), " ") {
-		if f == "tailscale" {
+		if f == "gentility" { // genscale: our snippet, not Tailscale's; see GENSCALE.md
 			continue
 		}
 		args = append(args, f)

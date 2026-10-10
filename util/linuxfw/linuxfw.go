@@ -178,7 +178,7 @@ func CheckIPRuleSupportsV6(logf logger.Logf) error {
 	rule := netlink.NewRule()
 	rule.Priority = 1234
 	rule.Mark = bypassMarkNum
-	rule.Table = 52
+	rule.Table = 66 // genscale: our route table, see GENSCALE.md and osrouter
 	rule.Family = netlink.FAMILY_V6
 	// First delete the rule unconditionally, and don't check for
 	// errors. This is just cleaning up anything that might be already
