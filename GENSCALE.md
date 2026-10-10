@@ -37,6 +37,17 @@ Linux policy routing, so we sit beside an installed `tailscaled`:
 - `util/linuxfw/linuxfw.go`: the IPv6 policy-routing probe rule looks up
   table 66 (upstream 52).
 
+Linux netfilter, so stopping or cleaning up never removes an installed
+`tailscaled`'s rules (ours and theirs share names and match arguments):
+
+- `wgengine/router/osrouter/router_linux.go` `Close`: deletes the connmark
+  save/restore rules only when `connmarkEnabled`, i.e. this router added them
+  (upstream deletes them unconditionally).
+- `wgengine/router/osrouter/router_linux.go` `cleanUp` (the
+  `router.CleanUp` hook): a no-op (upstream runs `IPTablesCleanUp` and
+  `NfTablesCleanUp`, which delete the `ts-*` chains and their hooks by name).
+  6net runs with netfilter off and never adds them.
+
 Resolver files, so we never touch Tailscale's:
 
 - `net/dns/manager_darwin.go`: `/etc/resolver` header

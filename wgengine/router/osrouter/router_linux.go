@@ -373,9 +373,15 @@ func (r *linuxRouter) Close() error {
 	}
 	r.eventClient.Close()
 
-	// Clean up connmark rules
-	if err := r.nfr.DelConnmarkSaveRule(); err != nil {
-		r.logf("warning: failed to delete connmark rules: %v", err)
+	// Clean up connmark rules.
+	// genscale: only if this router added them. The rules match the ones an
+	// installed tailscaled adds, so deleting them unconditionally (upstream)
+	// takes Tailscale's down when we stop with netfilter off.
+	if r.connmarkEnabled {
+		if err := r.nfr.DelConnmarkSaveRule(); err != nil {
+			r.logf("warning: failed to delete connmark rules: %v", err)
+		}
+		r.connmarkEnabled = false
 	}
 
 	if err := r.downInterface(); err != nil {
@@ -1689,12 +1695,13 @@ func platformCanNetfilter() bool {
 // cleanUp removes all the rules and routes that were added by the linux router.
 // The function calls cleanUp for both iptables and nftables since which ever
 // netfilter runner is used, the cleanUp function for the other one doesn't do anything.
-func cleanUp(logf logger.Logf, interfaceName string) {
-	if interfaceName != "userspace-networking" && platformCanNetfilter() {
-		linuxfw.IPTablesCleanUp(logf)
-		linuxfw.NfTablesCleanUp(logf)
-	}
-}
+//
+// genscale: it removes nothing. The netfilter cleanups delete the ts-* chains
+// and hooks by name, and those names are an installed tailscaled's too, so
+// upstream's cleanup takes Tailscale's firewall down. 6net runs with netfilter
+// off and never adds them; policy routing is the running router's to remove,
+// through Close.
+func cleanUp(logf logger.Logf, interfaceName string) {}
 
 // Checks if the running openWRT system is using mwan3, based on the heuristic
 // of the config file being present as well as a policy rule with a specific

@@ -28,6 +28,7 @@ import (
 	"tailscale.com/tsconst"
 	"tailscale.com/tstest"
 	"tailscale.com/types/logger"
+	"tailscale.com/types/preftype"
 	"tailscale.com/util/eventbus"
 	"tailscale.com/util/eventbus/eventbustest"
 	"tailscale.com/util/linuxfw"
@@ -565,6 +566,7 @@ type fakeIPTablesRunner struct {
 
 	addChainsErr          error // if non-nil, AddChains returns it instead of setting up chains
 	addConnmarkSaveCalls  int
+	delConnmarkSaveCalls  int // genscale
 	addExternalCGNATCalls int
 }
 
@@ -949,6 +951,7 @@ func (n *fakeIPTablesRunner) AddConnmarkSaveRule() error {
 }
 
 func (n *fakeIPTablesRunner) DelConnmarkSaveRule() error {
+	n.delConnmarkSaveCalls++ // genscale
 	prerouteRule := "-m conntrack --ctstate ESTABLISHED,RELATED -j CONNMARK --restore-mark --nfmask 0xff0000 --ctmask 0xff0000"
 	for _, ipt := range []map[string][]string{n.ipt4, n.ipt6} {
 		deleteRule(n, ipt, "mangle/PREROUTING", prerouteRule) // ignore errors
@@ -1607,5 +1610,59 @@ func TestSetSkipsNetfilterAddonsWhenSetupFails(t *testing.T) {
 	if nfr.addExternalCGNATCalls != 0 {
 		t.Errorf("AddExternalCGNATRules called %d times; want 0 when chain setup failed",
 			nfr.addExternalCGNATCalls)
+	}
+}
+
+// genscale: Close deletes the connmark rules only if this router added them.
+// They match an installed tailscaled's, so a router with netfilter off that
+// deleted them would take Tailscale's down.
+func TestCloseDeletesConnmarkOnlyIfAdded(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		mode      preftype.NetfilterMode
+		wantAdded int
+		wantDel   int
+	}{
+		{"netfilter off", netfilterOff, 0, 0},
+		{"netfilter on", netfilterOn, 1, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			bus := eventbus.New()
+			defer bus.Close()
+			mon, err := netmon.New(bus, logger.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mon.Start()
+			defer mon.Close()
+
+			fake := NewFakeOS(t)
+			nfr := fake.nfr.(*fakeIPTablesRunner)
+			r, err := newUserspaceRouterAdvanced(logger.Discard, "tailscale0", mon, fake, health.NewTracker(bus), bus)
+			if err != nil {
+				t.Fatalf("newUserspaceRouterAdvanced: %v", err)
+			}
+			lr := r.(*linuxRouter)
+			lr.nfr = nfr
+			if err := lr.Up(); err != nil {
+				t.Fatalf("Up: %v", err)
+			}
+			cfg := &Config{
+				LocalAddrs:    mustCIDRs("100.101.102.103/10"),
+				NetfilterMode: tt.mode,
+			}
+			if err := lr.Set(cfg); err != nil {
+				t.Fatalf("Set: %v", err)
+			}
+			if err := lr.Close(); err != nil {
+				t.Fatalf("Close: %v", err)
+			}
+			if nfr.addConnmarkSaveCalls != tt.wantAdded {
+				t.Errorf("AddConnmarkSaveRule called %d times; want %d", nfr.addConnmarkSaveCalls, tt.wantAdded)
+			}
+			if nfr.delConnmarkSaveCalls != tt.wantDel {
+				t.Errorf("DelConnmarkSaveRule called %d times; want %d", nfr.delConnmarkSaveCalls, tt.wantDel)
+			}
+		})
 	}
 }
