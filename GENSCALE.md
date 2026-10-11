@@ -104,6 +104,11 @@ Refused reach, so a refused connection can be seen and reported:
   "rejected" notice for a TCP SYN the filter drops is sent for IPv6 as well
   as IPv4 (upstream IPv4 only). 6net is IPv6-only, so upstream's sender
   never heard it was refused. Pinned by `net/tstun/wrap_genscale_test.go`.
+- `wgengine/userspace.go`: `Config.OnNoPeer(src, dst, pkt)`, called for
+  each outbound packet no peer owns, just before wireguard-go drops it
+  (upstream drops silently). `SetPeerByIPPacketFunc`'s closure is now the
+  method `peerForPacket`, so the hook is testable. Pinned by
+  `wgengine/userspace_genscale_test.go`.
 
 Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
 `wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are

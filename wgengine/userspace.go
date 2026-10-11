@@ -123,6 +123,8 @@ type userspaceEngine struct {
 	// the per-packet wgdev callback without locking.
 	peerByIPRoute atomic.Pointer[bart.Table[key.NodePublic]]
 
+	onNoPeer func(src, dst netip.Addr, pkt []byte) // genscale: Config.OnNoPeer, see GENSCALE.md
+
 	lastCfgFull        wgcfg.Config
 	lastRouter         *router.Config
 	lastDNSConfig      dns.ConfigView    // or invalid if none
@@ -278,6 +280,12 @@ type Config struct {
 	// WireGuard. The pkt slice is borrowed and must be copied if
 	// the callee needs to retain it.
 	OnDERPRecv func(regionID int, src key.NodePublic, pkt []byte) (handled bool)
+
+	// OnNoPeer, if non-nil, is called for every outbound packet wireguard-go
+	// is about to drop because no peer owns its destination. It runs on the
+	// send path, once per such packet: it must not block, and pkt is borrowed
+	// and must be copied to be kept. genscale: see GENSCALE.md.
+	OnNoPeer func(src, dst netip.Addr, pkt []byte)
 }
 
 // NewFakeUserspaceEngine returns a new userspace engine for testing.
@@ -393,6 +401,7 @@ func NewUserspaceEngine(logf logger.Logf, conf Config) (_ Engine, reterr error) 
 		reconfigureVPN:    conf.ReconfigureVPN,
 		health:            conf.HealthTracker,
 		conn25PacketHooks: conf.Conn25PacketHooks,
+		onNoPeer:          conf.OnNoPeer, // genscale: see GENSCALE.md
 	}
 
 	if e.birdClient != nil {
@@ -740,19 +749,28 @@ func (e *userspaceEngine) maybeReconfigWireguardLocked() error {
 // so callers that don't call SetPeerByIPPacketFunc (e.g. those not running
 // a LocalBackend) still get working outbound packet routing.
 func (e *userspaceEngine) SetPeerByIPPacketFunc(fn func(netip.Addr) (_ key.NodePublic, ok bool)) {
-	e.wgdev.SetPeerByIPPacketFunc(func(_, dst netip.Addr, _ []byte) (device.NoisePublicKey, bool) {
-		if fn != nil {
-			if pk, ok := fn(dst); ok {
-				return pk.Raw32(), true
-			}
-		}
-		if rt := e.peerByIPRoute.Load(); rt != nil {
-			if pk, ok := rt.Lookup(dst); ok {
-				return pk.Raw32(), true
-			}
-		}
-		return device.NoisePublicKey{}, false
+	e.wgdev.SetPeerByIPPacketFunc(func(src, dst netip.Addr, pkt []byte) (device.NoisePublicKey, bool) {
+		return e.peerForPacket(fn, src, dst, pkt) // genscale: named, for OnNoPeer; see GENSCALE.md
 	})
+}
+
+// peerForPacket is SetPeerByIPPacketFunc's lookup, and on a miss tells
+// OnNoPeer before wireguard-go drops the packet. genscale: see GENSCALE.md.
+func (e *userspaceEngine) peerForPacket(fn func(netip.Addr) (key.NodePublic, bool), src, dst netip.Addr, pkt []byte) (device.NoisePublicKey, bool) {
+	if fn != nil {
+		if pk, ok := fn(dst); ok {
+			return pk.Raw32(), true
+		}
+	}
+	if rt := e.peerByIPRoute.Load(); rt != nil {
+		if pk, ok := rt.Lookup(dst); ok {
+			return pk.Raw32(), true
+		}
+	}
+	if e.onNoPeer != nil {
+		e.onNoPeer(src, dst, pkt)
+	}
+	return device.NoisePublicKey{}, false
 }
 
 // hasOverlap checks if there is a IPPrefix which is common amongst the two
