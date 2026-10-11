@@ -1231,7 +1231,7 @@ func (t *Wrapper) filterPacketInboundFromWireGuard(p *packet.Parsed, captHook pa
 		// Their host networking stack can translate this into ICMP
 		// or whatnot as required. But notably, their GUI or tailscale CLI
 		// can show them a rejection history with reasons.
-		if p.IPVersion == 4 && p.IPProto == ipproto.TCP && p.TCPFlags&packet.TCPSyn != 0 && !t.disableTSMPRejected {
+		if (p.IPVersion == 4 || p.IPVersion == 6) && p.IPProto == ipproto.TCP && p.TCPFlags&packet.TCPSyn != 0 && !t.disableTSMPRejected { // genscale: IPv6 too; 6net is IPv6-only, see GENSCALE.md
 			rj := packet.TailscaleRejectedHeader{
 				IPSrc:  p.Dst.Addr(),
 				IPDst:  p.Src.Addr(),

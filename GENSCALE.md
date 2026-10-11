@@ -98,6 +98,13 @@ for a usable interface:
   interface even on a v6-only tailnet. `tsaddr.IsTailscaleIP` stays ours
   alone. Pinned by `net/netmon/state_genscale_test.go`.
 
+Refused reach, so a refused connection can be seen and reported:
+
+- `net/tstun/wrap.go` `filterPacketInboundFromWireGuard`: the TSMP
+  "rejected" notice for a TCP SYN the filter drops is sent for IPv6 as well
+  as IPv4 (upstream IPv4 only). 6net is IPv6-only, so upstream's sender
+  never heard it was refused. Pinned by `net/tstun/wrap_genscale_test.go`.
+
 Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
 `wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are
 updated to these values; `net/tsaddr` pins the
