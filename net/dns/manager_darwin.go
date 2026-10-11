@@ -60,6 +60,11 @@ func (c *darwinConfigurator) SetDNS(cfg OSConfig) error {
 		buf.WriteString(ip.String())
 		buf.WriteString("\n")
 	}
+	// genscale: ask for AAAA as well as A. 6net names are IPv6-only, and on a
+	// Mac with no routable IPv6 configd marks a resolver file A-only, so
+	// mDNSResponder suppresses every AAAA question getaddrinfo asks. "flags"
+	// is parsed by configd's dnsinfo_flatfile.c; it is not in resolver(5).
+	buf.WriteString("flags a aaaa\n")
 
 	if err := os.MkdirAll(c.resolverDir, 0755); err != nil {
 		return err

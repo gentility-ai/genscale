@@ -53,8 +53,8 @@ func TestSetDNS(t *testing.T) {
 				MatchDomains: []dnsname.FQDN{"example.com.", "ts.net."},
 			},
 			fileContents: map[string]string{
-				"example.com": macResolverFileHeader + "nameserver 100.100.100.100\n",
-				"ts.net":      macResolverFileHeader + "nameserver 100.100.100.100\n",
+				"example.com": macResolverFileHeader + "nameserver 100.100.100.100\nflags a aaaa\n",
+				"ts.net":      macResolverFileHeader + "nameserver 100.100.100.100\nflags a aaaa\n",
 			},
 		},
 		{
@@ -65,7 +65,7 @@ func TestSetDNS(t *testing.T) {
 				MatchDomains:  []dnsname.FQDN{"ts.net."},
 			},
 			fileContents: map[string]string{
-				"ts.net":      macResolverFileHeader + "nameserver 100.100.100.100\n",
+				"ts.net":      macResolverFileHeader + "nameserver 100.100.100.100\nflags a aaaa\n",
 				"search.6net": macResolverFileHeader + "search tail1234.ts.net\n",
 			},
 		},
@@ -78,8 +78,8 @@ func TestSetDNS(t *testing.T) {
 				MatchDomains:  []dnsname.FQDN{"0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa.", "xlabs.6net.io."},
 			},
 			fileContents: map[string]string{
-				"0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa": macResolverFileHeader + "nameserver fd06:6e7::53\n",
-				"xlabs.6net.io":                    macResolverFileHeader + "nameserver fd06:6e7::53\n",
+				"0.0.0.0.7.e.6.0.6.0.d.f.ip6.arpa": macResolverFileHeader + "nameserver fd06:6e7::53\nflags a aaaa\n",
+				"xlabs.6net.io":                    macResolverFileHeader + "nameserver fd06:6e7::53\nflags a aaaa\n",
 				"search.6net":                      macResolverFileHeader + "search xlabs.6net.io\n",
 			},
 		},

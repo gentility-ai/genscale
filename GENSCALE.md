@@ -83,6 +83,12 @@ MagicDNS on macOS, where the OS configurator is the `/etc/resolver`
   zones are dropped (upstream routes Tailscale's ULA and CGNAT zones, which
   would capture an installed Tailscale's PTR lookups and, under `tailscaled`
   on macOS, overwrite its resolver files).
+- `net/dns/manager_darwin.go` `SetDNS`: every resolver file carries
+  `flags a aaaa`. On a Mac with no routable IPv6, configd marks a resolver
+  file A-only and mDNSResponder suppresses getaddrinfo's AAAA questions, so
+  6net's IPv6-only names never resolved for applications. The `flags`
+  keyword is parsed by configd's `dnsinfo_flatfile.c`; resolver(5) does not
+  document it.
 
 Host-interface detection, so a co-installed Tailscale.app is never taken
 for a usable interface:
