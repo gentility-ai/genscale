@@ -78,9 +78,9 @@ func problematicInterfaceName(goos, name string) bool { // genscale: see GENSCAL
 
 // LocalAddresses returns the machine's IP addresses, separated by
 // whether they're loopback addresses. Unique local IPv6 addresses count as
-// regular ones (genscale: see GENSCALE.md). If there are no regular addresses
-// it will return any IPv4 linklocal addresses because we know of
-// environments where these are used with NAT to provide connectivity.
+// regular ones (genscale: see GENSCALE.md). When there is no regular IPv4 and
+// no global IPv6 address, it also returns any IPv4 linklocal addresses, because
+// we know of environments where these are used with NAT to provide connectivity.
 func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 	// TODO(crawshaw): don't serve interface addresses that we are routing
 	ifaces, err := netInterfaces()
@@ -142,7 +142,7 @@ func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 						// numbers of assigned addresses being carved out of
 						// same-subnet allocations.
 						if forceAllIPv6Endpoints() || subnets[curMask] < 2 {
-							if ip.IsPrivate() {
+							if ip.IsPrivate() { // genscale: see GENSCALE.md
 								ula6 = append(ula6, ip) // genscale: offered below, see GENSCALE.md
 							} else {
 								global6 = append(global6, ip) // genscale: see GENSCALE.md
