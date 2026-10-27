@@ -129,6 +129,12 @@ A4–A5 in the gentility repo):
   range and Tailscale's `fd7a:115c:a1e0::/48` are skipped: a tunnel's address
   is not a LAN's. The 169.254 fallback is unchanged. Pinned by
   `net/netmon/state_genscale_test.go`.
+- `wgengine/magicsock/magicsock.go` `determineEndpoints`: a local IPv6
+  address is offered on the IPv6 socket's port, and not at all when that
+  socket is unbound (upstream gives every local address the IPv4 socket's
+  port; with no configured port the two sockets differ, and the IPv6
+  endpoint named a port nothing listened on). `betterAddr`'s +10 for IPv6 is
+  upstream's and stays. Pinned by `wgengine/magicsock/magicsock_genscale_test.go`.
 
 Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
 `wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are

@@ -1394,8 +1394,11 @@ func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, erro
 			// offline, for example.
 			ips = loopback
 		}
+		localAddr6 := c.pconn6.LocalAddr() // genscale: see GENSCALE.md
 		for _, ip := range ips {
-			addAddr(netip.AddrPortFrom(ip, uint16(localAddr.Port)), tailcfg.EndpointLocal)
+			if port, ok := localEndpointPort(ip, localAddr, localAddr6); ok { // genscale: see GENSCALE.md
+				addAddr(netip.AddrPortFrom(ip, port), tailcfg.EndpointLocal) // genscale: see GENSCALE.md
+			}
 		}
 	} else {
 		// Our local endpoint is bound to a particular address.
@@ -1417,6 +1420,26 @@ func (c *Conn) determineEndpoints(ctx context.Context) ([]tailcfg.Endpoint, erro
 	// Despite this sorting, though, clients since 0.100 haven't relied
 	// on the sorting order for any decisions.
 	return eps, nil
+}
+
+// localEndpointPort is the port a peer can reach a local address on: that of
+// the socket of the address's own family. ok is false when that socket is not
+// bound (an IPv6 address on a host whose IPv6 socket is the block-forever
+// stand-in), and the address is then not offered.
+//
+// genscale: see GENSCALE.md. Upstream gives every local address pconn4's
+// port. The two sockets share a port when one is configured, but each picks
+// its own random port otherwise, and a local IPv6 endpoint then named a port
+// nothing listened on.
+func localEndpointPort(ip netip.Addr, addr4, addr6 *net.UDPAddr) (uint16, bool) {
+	addr := addr4
+	if ip.Is6() {
+		addr = addr6
+	}
+	if addr == nil || addr.Port == 0 {
+		return 0, false
+	}
+	return uint16(addr.Port), true
 }
 
 // endpointSetsEqual reports whether x and y represent the same set of
