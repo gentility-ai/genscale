@@ -77,16 +77,17 @@ func problematicInterfaceName(goos, name string) bool { // genscale: see GENSCAL
 }
 
 // LocalAddresses returns the machine's IP addresses, separated by
-// whether they're loopback addresses. If there are no regular addresses
-// it will return any IPv4 linklocal or IPv6 unique local addresses because we
-// know of environments where these are used with NAT to provide connectivity.
+// whether they're loopback addresses. Unique local IPv6 addresses count as
+// regular ones (genscale: see GENSCALE.md). If there are no regular addresses
+// it will return any IPv4 linklocal addresses because we know of
+// environments where these are used with NAT to provide connectivity.
 func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 	// TODO(crawshaw): don't serve interface addresses that we are routing
 	ifaces, err := netInterfaces()
 	if err != nil {
 		return nil, nil, err
 	}
-	var regular4, regular6, linklocal4, ula6 []netip.Addr
+	var regular4, global6, ula6, linklocal4 []netip.Addr // genscale: see GENSCALE.md
 	for _, iface := range ifaces {
 		stdIf := iface.Interface
 		if !isUp(stdIf) || isProblematicInterface(stdIf) {
@@ -115,7 +116,7 @@ func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 				// very well be something we can route to
 				// directly, because both nodes are
 				// behind the same CGNAT router.
-				if tsaddr.IsTailscaleIP(ip) {
+				if tsaddr.IsTailscaleIP(ip) || upstreamTailscaleULA.Contains(ip) { // genscale: a tunnel's address is not a LAN's, see GENSCALE.md
 					continue
 				}
 				if ip.IsLoopback() || ifcIsLoopback {
@@ -131,10 +132,6 @@ func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 					// but their OS supports IPv6 so they have an fe80::
 					// address. We don't want to report all of those
 					// IPv6 LL to Control.
-				} else if ip.Is6() && ip.IsPrivate() {
-					// Google Cloud Run uses NAT with IPv6 Unique
-					// Local Addresses to provide IPv6 connectivity.
-					ula6 = append(ula6, ip)
 				} else {
 					if ip.Is4() {
 						regular4 = append(regular4, ip)
@@ -145,7 +142,11 @@ func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 						// numbers of assigned addresses being carved out of
 						// same-subnet allocations.
 						if forceAllIPv6Endpoints() || subnets[curMask] < 2 {
-							regular6 = append(regular6, ip)
+							if ip.IsPrivate() {
+								ula6 = append(ula6, ip) // genscale: offered below, see GENSCALE.md
+							} else {
+								global6 = append(global6, ip) // genscale: see GENSCALE.md
+							}
 						}
 						mak.Set(&subnets, curMask, subnets[curMask]+1)
 					}
@@ -153,15 +154,19 @@ func LocalAddresses() (regular, loopback []netip.Addr, err error) {
 			}
 		}
 	}
-	if len(regular4) == 0 && len(regular6) == 0 {
+	if len(regular4) == 0 && len(global6) == 0 { // genscale: see GENSCALE.md
 		// if we have no usable IP addresses then be willing to accept
 		// addresses we otherwise wouldn't, like:
 		//   + 169.254.x.x (AWS Lambda and Azure App Services use NAT with these)
-		//   + IPv6 ULA (Google Cloud Run uses these with address translation)
 		regular4 = linklocal4
-		regular6 = ula6
 	}
-	regular = append(regular4, regular6...)
+	// genscale: see GENSCALE.md. Unique local addresses are offered with the
+	// rest, not as a last resort (upstream offers them only when a host has
+	// nothing else, for Cloud Run's NAT). On a LAN with a ULA prefix and no
+	// global IPv6, a home router or an iPhone's Wi-Fi, the ULA is the IPv6
+	// path two peers share; the cost is a few disco pings to addresses a far
+	// peer cannot reach.
+	regular = append(append(regular4, global6...), ula6...)
 	sortIPs(regular)
 	sortIPs(loopback)
 	return regular, loopback, nil

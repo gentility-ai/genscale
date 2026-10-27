@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/netip"
 	"runtime"
+	"strings"
 	"testing"
 
 	"tailscale.com/net/tsaddr"
@@ -105,5 +106,83 @@ func TestLocalAddressesSkipsMacVMBridges(t *testing.T) {
 	}
 	if len(regular) != 1 || regular[0].String() != "192.168.50.183" {
 		t.Fatalf("LocalAddresses = %v, want only en0's address", regular)
+	}
+}
+
+// genscale: unique local addresses are offered with the rest, capped per
+// subnet like global IPv6; 6net's own, Tailscale's own and link-local never.
+func TestLocalAddressesOffersULAsWithTheRest(t *testing.T) {
+	ifaces := []Interface{
+		{Interface: &net.Interface{Index: 1, Name: "en0", Flags: upFlags},
+			AltAddrs: []net.Addr{
+				cidr(t, "192.168.50.183/24"),
+				cidr(t, "fe80::1c6:9aff:fe12:3456/64"),
+				cidr(t, "fd8c:e0a9:e3b4:4bb2:18c6:9aff:fe12:3456/64"),
+				cidr(t, "fd8c:e0a9:e3b4:4bb2:a1b2:c3d4:e5f6:1/64"),
+				cidr(t, "fd8c:e0a9:e3b4:4bb2:dead:beef:0:1/64"), // third in the /64: over the cap
+				cidr(t, "2001:db8:1:2::42/64"),
+			}},
+		{Interface: &net.Interface{Index: 2, Name: "utun4", Flags: upFlags},
+			AltAddrs: []net.Addr{
+				cidr(t, "fd7a:115c:a1e0::1234/128"), // a co-installed Tailscale
+				cidr(t, "fd06:6e7:0:2::a/128"),      // 6net itself
+			}},
+	}
+	tstest.Replace(t, &altNetInterfaces, func() ([]Interface, error) { return ifaces, nil })
+
+	regular, _, err := LocalAddresses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, len(regular))
+	for i, a := range regular {
+		got[i] = a.String()
+	}
+	want := []string{
+		"192.168.50.183",
+		"2001:db8:1:2::42",
+		"fd8c:e0a9:e3b4:4bb2:18c6:9aff:fe12:3456",
+		"fd8c:e0a9:e3b4:4bb2:a1b2:c3d4:e5f6:1",
+	}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Fatalf("LocalAddresses = %v, want %v (v4, global, two ULAs; no link-local, no third ULA, no tunnel)", got, want)
+	}
+}
+
+// The link-local IPv4 fallback is as upstream left it: 169.254 is offered only
+// when there is no regular IPv4 and no global IPv6; a ULA beside it does not
+// hide it (upstream offered both too), a global address does.
+func TestLocalAddressesStillFallsBackToLinkLocalIPv4(t *testing.T) {
+	addrs := func(cidrs ...string) []net.Addr {
+		out := make([]net.Addr, len(cidrs))
+		for i, c := range cidrs {
+			out[i] = cidr(t, c)
+		}
+		return out
+	}
+	tests := []struct {
+		name  string
+		addrs []net.Addr
+		want  string
+	}{
+		{"169.254 and a ULA", addrs("169.254.10.5/16", "fd00:1::5/64"), "169.254.10.5 fd00:1::5"},
+		{"169.254 and a global", addrs("169.254.10.5/16", "2001:db8::5/64"), "2001:db8::5"},
+		{"169.254 alone", addrs("169.254.10.5/16"), "169.254.10.5"},
+		{"169.254 and a regular v4", addrs("169.254.10.5/16", "10.0.0.5/8"), "10.0.0.5"},
+	}
+	for _, tt := range tests {
+		ifaces := []Interface{{Interface: &net.Interface{Index: 1, Name: "eth0", Flags: upFlags}, AltAddrs: tt.addrs}}
+		tstest.Replace(t, &altNetInterfaces, func() ([]Interface, error) { return ifaces, nil })
+		regular, _, err := LocalAddresses()
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts := make([]string, len(regular))
+		for i, a := range regular {
+			parts[i] = a.String()
+		}
+		if got := strings.Join(parts, " "); got != tt.want {
+			t.Errorf("%s: LocalAddresses = %q, want %q", tt.name, got, tt.want)
+		}
 	}
 }

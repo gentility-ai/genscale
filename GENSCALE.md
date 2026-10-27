@@ -123,6 +123,12 @@ A4–A5 in the gentility repo):
   because its `bridge100` is the Personal Hotspot. The rule is
   `problematicInterfaceName(goos, name)`, pinned by
   `net/netmon/state_genscale_test.go`.
+- `net/netmon/state.go` `LocalAddresses`: unique local addresses (fc00::/7)
+  are regular addresses, capped at two per subnet like global IPv6 (upstream
+  offers them only when a host has nothing else, for Cloud Run). 6net's own
+  range and Tailscale's `fd7a:115c:a1e0::/48` are skipped: a tunnel's address
+  is not a LAN's. The 169.254 fallback is unchanged. Pinned by
+  `net/netmon/state_genscale_test.go`.
 
 Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
 `wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are
