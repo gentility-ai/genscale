@@ -114,12 +114,15 @@ Endpoints on a LAN, so two 6net nodes beside each other take the IPv6 path
 (the Desk phone's design, docs/plans/2026-10-27-desk-mobile-fast-open-design.md
 A4–A5 in the gentility repo):
 
-- `net/netmon/state.go` `isProblematicInterface`: on darwin and ios,
-  `bridge100` and above and `vmenet*` are problematic (Virtualization.framework
-  and Docker host-only networks, reachable only from the Mac's own VMs; a far
-  peer pinged them, and the Mac's own path choice tied them with the LAN).
-  `bridge0` and `pdp_ip*` stay. The rule is `problematicInterfaceName(goos,
-  name)`, pinned by `net/netmon/state_genscale_test.go`.
+- `net/netmon/state.go` `isProblematicInterface`: on darwin, `bridge100` and
+  above and `vmenet*` are problematic (Virtualization.framework host-only
+  networks, reachable only from the Mac's own VMs; a far peer pinged them,
+  and the Mac's own path choice tied them with the LAN). `bridge0` stays.
+  Internet Sharing's `bridge100` is excluded with them (the other side's
+  disco ping still teaches the Mac its address), and iOS is left alone
+  because its `bridge100` is the Personal Hotspot. The rule is
+  `problematicInterfaceName(goos, name)`, pinned by
+  `net/netmon/state_genscale_test.go`.
 
 Tests in `net/tsaddr`, `net/dns/...`, `net/netmon`,
 `wgengine/router/osrouter` and `ipn/ipnlocal`'s `TestDNSConfigForNetmap` are

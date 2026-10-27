@@ -47,7 +47,8 @@ func TestProblematicInterfaceNameExcludesMacVMNetworks(t *testing.T) {
 	}{
 		{"darwin", "bridge100", true},
 		{"darwin", "bridge101", true},
-		{"ios", "bridge100", true},
+		{"ios", "bridge100", false}, // the Personal Hotspot, a real path to a tethered Mac
+		{"ios", "vmenet0", false},
 		{"darwin", "vmenet0", true},
 		{"darwin", "vmenet12", true},
 		{"darwin", "bridge0", false}, // the Thunderbolt bridge
@@ -84,8 +85,9 @@ func cidr(t *testing.T, s string) *net.IPNet {
 
 const upFlags = net.FlagUp | net.FlagBroadcast | net.FlagMulticast | net.FlagRunning
 
-// On a Mac, LocalAddresses skips bridge100 by the wiring above, not only by
-// the rule; this runs where it matters and skips elsewhere.
+// On a Mac, LocalAddresses skips bridge100 by isProblematicInterface's use in
+// LocalAddresses, not only by the rule; this runs where it matters and skips
+// elsewhere.
 func TestLocalAddressesSkipsMacVMBridges(t *testing.T) {
 	if runtime.GOOS != "darwin" {
 		t.Skip("the rule is darwin's; TestProblematicInterfaceNameExcludesMacVMNetworks covers it elsewhere")

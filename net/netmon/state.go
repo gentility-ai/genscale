@@ -37,12 +37,12 @@ func isUp(nif *net.Interface) bool       { return nif.Flags&net.FlagUp != 0 }
 func isLoopback(nif *net.Interface) bool { return nif.Flags&net.FlagLoopback != 0 }
 
 func isProblematicInterface(nif *net.Interface) bool {
-	return problematicInterfaceName(runtime.GOOS, nif.Name)
+	return problematicInterfaceName(runtime.GOOS, nif.Name) // genscale: see GENSCALE.md
 }
 
 // problematicInterfaceName is isProblematicInterface by OS and name, so the
 // darwin rule can be tested on any platform.
-func problematicInterfaceName(goos, name string) bool {
+func problematicInterfaceName(goos, name string) bool { // genscale: see GENSCALE.md
 	// Don't try to send disco/etc packets over zerotier; they effectively
 	// DoS each other by doing traffic amplification, both of them
 	// preferring/trying to use each other for transport. See:
@@ -52,16 +52,18 @@ func problematicInterfaceName(goos, name string) bool {
 	// generic where there is not a platform standard (on Linux wt0 is at least
 	// explicitly different from the WireGuard conventional default of wg0).
 	if strings.HasPrefix(name, "zt") || name == "wt0" /* NetBird */ ||
-		(goos == "windows" && strings.Contains(name, "ZeroTier")) {
+		(goos == "windows" && strings.Contains(name, "ZeroTier")) { // genscale: see GENSCALE.md
 		return true
 	}
-	// genscale: see GENSCALE.md. On macOS and iOS, bridge100 and above are
-	// Virtualization.framework's and Docker's host-only networks and vmenet*
-	// their VM-side taps, reachable from this Mac's own VMs alone. Offered
-	// as endpoints, a far peer pings addresses it can never reach, and the
-	// Mac's own path choice ties them with the LAN. bridge0 (Thunderbolt)
-	// stays.
-	if goos == "darwin" || goos == "ios" {
+	// genscale: see GENSCALE.md. On macOS, bridge100 and above are
+	// Virtualization.framework's host-only networks and vmenet* their
+	// VM-side taps, reachable from this Mac's own VMs alone. Offered as
+	// endpoints, a far peer pinged them, and the Mac's own path choice tied
+	// them with the LAN. bridge0 (Thunderbolt) stays. Internet Sharing's
+	// bridge100 is excluded with them; the sharing Mac's direct path forms
+	// from the phone's ping instead. iOS is not covered: its bridge100 is
+	// the Personal Hotspot, a real path.
+	if goos == "darwin" {
 		if strings.HasPrefix(name, "vmenet") {
 			return true
 		}
