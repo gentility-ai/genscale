@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"tailscale.com/envknob"
@@ -36,7 +37,12 @@ func isUp(nif *net.Interface) bool       { return nif.Flags&net.FlagUp != 0 }
 func isLoopback(nif *net.Interface) bool { return nif.Flags&net.FlagLoopback != 0 }
 
 func isProblematicInterface(nif *net.Interface) bool {
-	name := nif.Name
+	return problematicInterfaceName(runtime.GOOS, nif.Name)
+}
+
+// problematicInterfaceName is isProblematicInterface by OS and name, so the
+// darwin rule can be tested on any platform.
+func problematicInterfaceName(goos, name string) bool {
 	// Don't try to send disco/etc packets over zerotier; they effectively
 	// DoS each other by doing traffic amplification, both of them
 	// preferring/trying to use each other for transport. See:
@@ -46,8 +52,24 @@ func isProblematicInterface(nif *net.Interface) bool {
 	// generic where there is not a platform standard (on Linux wt0 is at least
 	// explicitly different from the WireGuard conventional default of wg0).
 	if strings.HasPrefix(name, "zt") || name == "wt0" /* NetBird */ ||
-		(runtime.GOOS == "windows" && strings.Contains(name, "ZeroTier")) {
+		(goos == "windows" && strings.Contains(name, "ZeroTier")) {
 		return true
+	}
+	// genscale: see GENSCALE.md. On macOS and iOS, bridge100 and above are
+	// Virtualization.framework's and Docker's host-only networks and vmenet*
+	// their VM-side taps, reachable from this Mac's own VMs alone. Offered
+	// as endpoints, a far peer pings addresses it can never reach, and the
+	// Mac's own path choice ties them with the LAN. bridge0 (Thunderbolt)
+	// stays.
+	if goos == "darwin" || goos == "ios" {
+		if strings.HasPrefix(name, "vmenet") {
+			return true
+		}
+		if rest, ok := strings.CutPrefix(name, "bridge"); ok {
+			if n, err := strconv.Atoi(rest); err == nil && n >= 100 {
+				return true
+			}
+		}
 	}
 	return false
 }
